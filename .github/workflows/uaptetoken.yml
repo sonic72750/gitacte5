@@ -16,24 +16,27 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    
+
     steps:
     - name: Checkout
       uses: actions/checkout@v4
-    - name: Set up Python #安装python
+
+    - name: Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: 3.9
-    - name: Install requests #安装requests
+
+    - name: Install requests
       run: |
         pip install requests
-    - name: Read config from secrets  #读取机密
+
+    - name: Read config from secrets
       env: 
-        ID_LIST: ${{ secrets.ID_LIST }} # secrets_id 提供
-        KEY_LIST: ${{ secrets.KEY_LIST }} # secrets_key 提供
-        ID_LIST2: ${{ secrets.ID_LIST2 }} # secrets_id 提供
-        KEY_LIST2: ${{ secrets.KEY_LIST2 }} # secrets_key 提供
-      run: | 
+        ID_LIST: ${{ secrets.ID_LIST }}
+        KEY_LIST: ${{ secrets.KEY_LIST }}
+        ID_LIST2: ${{ secrets.ID_LIST2 }}
+        KEY_LIST2: ${{ secrets.KEY_LIST2 }}
+      run: |
         cp updatetoken.py updatetoken2.py
         echo $ID_LIST > idlist.txt
         echo $KEY_LIST > keylist.txt
@@ -43,21 +46,26 @@ jobs:
         echo $KEY_LIST2 > keylist2.txt
         sed -i '12 r idlist2.txt' updatetoken2.py
         sed -i '13 r keylist2.txt' updatetoken2.py
-    - name: Update token #更新token
-      run: | 
+
+    - name: Pull latest changes from remote
+      run: |
+        git fetch origin
+        git pull origin main
+
+    - name: Update token
+      run: |
         python updatetoken2.py
-    - name: Delete secrets config #删除机密
-      run: | 
-        rm -f updatetoken2.py
-        rm -f idlist.txt
-        rm -f keylist.txt
-        rm -f idlist2.txt
-        rm -f keylist2.txt
-    - name: Commit #上传新的refresh_token到仓库
+
+    - name: Delete secrets config
+      run: |
+        rm -f updatetoken2.py idlist.txt keylist.txt idlist2.txt keylist2.txt
+
+    - name: Commit changes
       run: |
         git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
         git config --global user.name "github-actions[bot]"
-        git commit -a -m "update new refresh_token"
+        git diff --exit-code || git commit -a -m "update new refresh_token"
+
     - name: Push changes
       uses: ad-m/github-push-action@master
       with:
