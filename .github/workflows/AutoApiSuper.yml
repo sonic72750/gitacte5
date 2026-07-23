@@ -6,27 +6,17 @@ on:
   schedule:
     - cron: "0 1,5,8 * * 1-5"
 
-  release:
-    types:
-      - published
-
-  push:
-    tags:
-      - "v*"
-
-permissions:
-  contents: read
-
 concurrency:
   group: auto-api-super
   cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
   run-api-check:
     name: Test Microsoft Graph API
     runs-on: ubuntu-latest
-
-    # 防止網路或程式異常造成工作無限執行。
     timeout-minutes: 15
 
     env:
@@ -46,10 +36,11 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-          cache: "pip"
 
       - name: Install dependencies
+        shell: bash
         run: |
+          set -euo pipefail
           python -m pip install --upgrade pip
           python -m pip install "requests>=2.32,<3"
 
@@ -68,10 +59,25 @@ jobs:
             exit 1
           fi
 
-          echo "找到以下 Token 檔案："
+          TOKEN_COUNT="$(find token -maxdepth 1 -type f -name '*.txt' | wc -l)"
+
+          if [[ "$TOKEN_COUNT" -eq 0 ]]; then
+            echo "::error::token 目錄內沒有任何 .txt Token 檔案"
+            exit 1
+          fi
+
+          echo "找到 $TOKEN_COUNT 個主要 Token 檔案："
           find token -maxdepth 1 -type f -name "*.txt" \
             -printf "%f\n" | sort
 
+          if [[ -d "backuptoken" ]]; then
+            echo "備用 Token 檔案："
+            find backuptoken -maxdepth 1 -type f -name "*.txt" \
+              -printf "%f\n" | sort || true
+          fi
+
       - name: Run Microsoft Graph API checks
+        shell: bash
         run: |
+          set -euo pipefail
           python -u testapi.py
