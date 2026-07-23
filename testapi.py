@@ -72,20 +72,36 @@ fh = open(path3, "r+")
 buconfig = fh.read()
 fh.close()
 randomapi = randapi.split(',')
-def gettoken(refresh_token,a):
-    headers={'Content-Type':'application/x-www-form-urlencoded'
-            }
-    data={'grant_type': 'refresh_token',
-          'refresh_token': refresh_token,
-          'client_id':id_lists[a],
-          'client_secret':secret_lists[a],
-          'redirect_uri':'http://localhost:53682/'
-         }
-    html = req.post('https://login.microsoftonline.com/common/oauth2/v2.0/token',data=data,headers=headers)
-    jsontxt = json.loads(html.text)
-    refresh_token = jsontxt['refresh_token']
-    access_token = jsontxt['access_token']
-    return access_token
+def gettoken(refresh_token, a):
+    headers = {
+        "Content-Type": "application/x-www-form-urlencoded"
+    }
+
+    data = {
+        "grant_type": "refresh_token",
+        "refresh_token": refresh_token.strip(),
+        "client_id": id_lists[a],
+        "client_secret": secret_lists[a],
+        "redirect_uri": "http://localhost:53682/"
+    }
+
+    response = req.post(
+        "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+        data=data,
+        headers=headers,
+        timeout=30
+    )
+
+    result = response.json()
+
+    if not response.ok or "access_token" not in result:
+        raise RuntimeError(
+            f"Account index {a}: HTTP {response.status_code}, "
+            f"{result.get('error')}: "
+            f"{result.get('error_description')}"
+        )
+
+    return result["access_token"]
 def testapi(path,a,ls):
     fo = open(path, "r+")
     refresh_token = fo.read()
