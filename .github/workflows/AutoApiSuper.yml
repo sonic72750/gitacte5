@@ -1,46 +1,77 @@
-#AutoApiS 多功能版
 name: Auto Api Super
 
-on: 
+on:
+  workflow_dispatch:
+
+  schedule:
+    - cron: "0 1,5,8 * * 1-5"
+
   release:
-    types: [published]
+    types:
+      - published
+
   push:
     tags:
-    - 'v*'
-  #  branches: 
-  #    - master
-  schedule:
-    - cron: '0 1,5,8 * * 1-5'
-  workflow_dispatch:
-   
+      - "v*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: auto-api-super
+  cancel-in-progress: true
+
 jobs:
-  build:
+  run-api-check:
+    name: Test Microsoft Graph API
     runs-on: ubuntu-latest
+
+    # 防止網路或程式異常造成工作無限執行。
+    timeout-minutes: 15
+
+    env:
+      PYTHONUNBUFFERED: "1"
+
+      ID_LIST: ${{ secrets.ID_LIST }}
+      KEY_LIST: ${{ secrets.KEY_LIST }}
+
+      ID_LIST2: ${{ secrets.ID_LIST2 }}
+      KEY_LIST2: ${{ secrets.KEY_LIST2 }}
+
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-    - name: Set up Python #安装python
-      uses: actions/setup-python@v5
-      with:
-        python-version: 3.9
-    - name: Install requests #安装requests
-      run: |
-        pip install requests
-    - name: Read config from secrets  #读取机密
-      env: 
-        ID_LIST: ${{ secrets.ID_LIST }} # secrets_id 提供
-        KEY_LIST: ${{ secrets.KEY_LIST }} # secrets_key 提供
-        ID_LIST2: ${{ secrets.ID_LIST2 }} # secrets_id 提供
-        KEY_LIST2: ${{ secrets.KEY_LIST2 }} # secrets_key 提供
-      run: | 
-        echo $ID_LIST > idlist.txt
-        echo $KEY_LIST > keylist.txt
-        sed -i '10 r idlist.txt' testapi.py
-        sed -i '11 r keylist.txt' testapi.py
-        echo $ID_LIST2 > idlist2.txt
-        echo $KEY_LIST2 > keylist2.txt
-        sed -i '12 r idlist2.txt' testapi.py
-        sed -i '13 r keylist2.txt' testapi.py
-    - name: Test Api #Api调用
-      run: | 
-        python testapi.py
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "requests>=2.32,<3"
+
+      - name: Validate required files
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ ! -f "testapi.py" ]]; then
+            echo "::error::找不到 testapi.py"
+            exit 1
+          fi
+
+          if [[ ! -d "token" ]]; then
+            echo "::error::找不到 token 目錄"
+            exit 1
+          fi
+
+          echo "找到以下 Token 檔案："
+          find token -maxdepth 1 -type f -name "*.txt" \
+            -printf "%f\n" | sort
+
+      - name: Run Microsoft Graph API checks
+        run: |
+          python -u testapi.py
